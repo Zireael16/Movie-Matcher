@@ -106,6 +106,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   /**
+     * Check if current authenticated user has ADMIN authority.
+     */
+    const isAdmin = () => user?.role === 'ADMIN';
+
+  /**
    * Context payload exposed to children.
    */
   const value = {
@@ -113,6 +118,7 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     isAuthenticated: !!token,
+    isAdmin,
     login,
     register,
     logout,
