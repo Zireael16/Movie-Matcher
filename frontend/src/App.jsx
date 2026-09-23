@@ -11,11 +11,12 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Unauthorized from './pages/Unauthorized';
 import AdminDashboard from './pages/AdminDashboard';
+import Booking from './pages/Booking';
 
 /**
  * Root Application Router.
  * Configures application-wide routing rules, public access points,
- * and role-restricted boundaries.
+ * role-restricted boundaries, and the interactive booking flow.
  */
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/booking/:showtimeId" element={<Booking />} />
 
             {/* Role-Gated Administrative Portal */}
             <Route

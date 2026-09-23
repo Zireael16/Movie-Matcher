@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
+/**
+ * Home Page Component
+ * Displays available movies and interactive showtime badges that navigate
+ * to the seat layout selection screen (/booking/:showtimeId).
+ */
 export default function Home() {
+  const navigate = useNavigate();
   const [movies, setMovies] = useState([]);
   const [showtimes, setShowtimes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +120,7 @@ export default function Home() {
                       {movieSchedules.map((schedule) => (
                         <div
                           key={schedule.id}
+                          onClick={() => navigate(`/booking/${schedule.id}`)}
                           style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -121,6 +129,16 @@ export default function Home() {
                             border: '1px solid #edf2f7',
                             padding: '10px 14px',
                             borderRadius: '6px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#0284c7';
+                            e.currentTarget.style.backgroundColor = '#f0f9ff';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '#edf2f7';
+                            e.currentTarget.style.backgroundColor = '#f8fafc';
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -132,9 +150,14 @@ export default function Home() {
                             </span>
                           </div>
 
-                          <span style={{ color: '#0f766e', fontWeight: '700', fontSize: '1rem' }}>
-                            ₹{Number(schedule.ticketPrice).toFixed(0)}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: '#0f766e', fontWeight: '700', fontSize: '1rem' }}>
+                              ₹{Number(schedule.ticketPrice).toFixed(0)}
+                            </span>
+                            <span style={{ color: '#0284c7', fontSize: '0.8rem', fontWeight: '600' }}>
+                              Book →
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
