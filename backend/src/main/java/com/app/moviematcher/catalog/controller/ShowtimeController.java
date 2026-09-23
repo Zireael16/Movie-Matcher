@@ -1,7 +1,9 @@
 package com.app.moviematcher.catalog.controller;
 
+import com.app.moviematcher.catalog.dto.SeatLayoutResponseDTO;
 import com.app.moviematcher.catalog.dto.ShowtimeRequest;
 import com.app.moviematcher.catalog.dto.ShowtimeResponse;
+import com.app.moviematcher.catalog.service.ShowtimeSeatService;
 import com.app.moviematcher.catalog.service.ShowtimeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -18,17 +20,20 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * REST controller managing theater Showtimes.
+ * REST controller managing theater Showtimes and seat inventory layouts.
  * Enforces admin authority for scheduling and cancellation.
+ * Seat maps and schedule queries are open to the public.
  */
 @RestController
 @RequestMapping("/api/v1/showtimes")
 public class ShowtimeController {
 
     private final ShowtimeService showtimeService;
+    private final ShowtimeSeatService showtimeSeatService;
 
-    public ShowtimeController(ShowtimeService showtimeService) {
+    public ShowtimeController(ShowtimeService showtimeService, ShowtimeSeatService showtimeSeatService) {
         this.showtimeService = showtimeService;
+        this.showtimeSeatService = showtimeSeatService;
     }
 
     /**
@@ -63,6 +68,18 @@ public class ShowtimeController {
     @GetMapping("/{id}")
     public ResponseEntity<ShowtimeResponse> getShowtimeById(@PathVariable Long id) {
         return ResponseEntity.ok(showtimeService.getShowtimeById(id));
+    }
+
+    /**
+     * Retrieves the complete interactive seat layout matrix and pricing tiers for a showtime.
+     * Open to public.
+     *
+     * @param id showtime unique identifier
+     * @return SeatLayoutResponseDTO containing screen dimensions, metadata, and all seats
+     */
+    @GetMapping("/{id}/seats")
+    public ResponseEntity<SeatLayoutResponseDTO> getSeatLayout(@PathVariable Long id) {
+        return ResponseEntity.ok(showtimeSeatService.getSeatLayout(id));
     }
 
     /**

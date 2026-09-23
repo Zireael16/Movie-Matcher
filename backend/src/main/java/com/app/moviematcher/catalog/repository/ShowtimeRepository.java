@@ -11,7 +11,8 @@ import java.util.List;
 
 /**
  * Spring Data JPA repository for Showtime entities.
- * Includes optimized query methods with fetch joins and interval overlap detection.
+ * Includes optimized query methods with fetch joins, interval overlap detection,
+ * and date-window filtering for public movie browsing.
  */
 @Repository
 public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
@@ -36,6 +37,29 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
             "WHERE s.movie.id = :movieId " +
             "ORDER BY s.startTime ASC")
     List<Showtime> findByMovieIdWithDetails(@Param("movieId") Long movieId);
+
+    /**
+     * Retrieves all showtimes for a specific movie scheduled within a specific date window
+     * (e.g., from 00:00:00 to 23:59:59 of a selected day).
+     * Includes JOIN FETCH on movie and screen to avoid secondary queries during UI rendering.
+     *
+     * @param movieId the target movie ID
+     * @param startOfDay the start boundary of the requested date (in OffsetDateTime)
+     * @param endOfDay the end boundary of the requested date (in OffsetDateTime)
+     * @return List of showtimes occurring on the requested date, ordered chronologically
+     */
+    @Query("SELECT s FROM Showtime s " +
+            "JOIN FETCH s.movie " +
+            "JOIN FETCH s.screen " +
+            "WHERE s.movie.id = :movieId " +
+            "AND s.startTime >= :startOfDay " +
+            "AND s.startTime <= :endOfDay " +
+            "ORDER BY s.startTime ASC")
+    List<Showtime> findByMovieIdAndDateRangeWithDetails(
+            @Param("movieId") Long movieId,
+            @Param("startOfDay") OffsetDateTime startOfDay,
+            @Param("endOfDay") OffsetDateTime endOfDay
+    );
 
     /**
      * Checks if any existing showtime on the target screen overlaps with the requested interval.

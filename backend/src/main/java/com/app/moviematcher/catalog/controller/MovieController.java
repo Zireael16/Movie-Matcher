@@ -2,8 +2,11 @@ package com.app.moviematcher.catalog.controller;
 
 import com.app.moviematcher.catalog.dto.MovieRequest;
 import com.app.moviematcher.catalog.dto.MovieResponse;
+import com.app.moviematcher.catalog.dto.ShowtimeResponse;
 import com.app.moviematcher.catalog.service.MovieService;
+import com.app.moviematcher.catalog.service.ShowtimeService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,8 +17,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -27,9 +32,11 @@ import java.util.List;
 public class MovieController {
 
     private final MovieService movieService;
+    private final ShowtimeService showtimeService;
 
-    public MovieController(MovieService movieService) {
+    public MovieController(MovieService movieService, ShowtimeService showtimeService) {
         this.movieService = movieService;
+        this.showtimeService = showtimeService;
     }
 
     /**
@@ -56,6 +63,25 @@ public class MovieController {
     @GetMapping("/{id}")
     public ResponseEntity<MovieResponse> getMovieById(@PathVariable Long id) {
         return ResponseEntity.ok(movieService.getMovieById(id));
+    }
+
+    /**
+     * Retrieves showtimes for a specific movie.
+     * If a date parameter (?date=YYYY-MM-DD) is provided, filters by that day.
+     * Otherwise, returns all scheduled showtimes for the movie. Open to public.
+     *
+     * @param id unique identifier of the movie
+     * @param date optional calendar date in ISO format (YYYY-MM-DD)
+     * @return list of matching showtimes
+     */
+    @GetMapping("/{id}/showtimes")
+    public ResponseEntity<List<ShowtimeResponse>> getShowtimesByMovie(
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        if (date != null) {
+            return ResponseEntity.ok(showtimeService.getShowtimesByMovieIdAndDate(id, date));
+        }
+        return ResponseEntity.ok(showtimeService.getShowtimesByMovieId(id));
     }
 
     /**

@@ -12,12 +12,16 @@ import com.app.moviematcher.catalog.service.ShowtimeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Implementation of ShowtimeService enforcing screen collision checks and schedule integrity.
+ * Implementation of ShowtimeService enforcing screen collision checks, schedule integrity,
+ * and date-window filtering for public movie browsing.
  */
 @Service
 public class ShowtimeServiceImpl implements ShowtimeService {
@@ -99,6 +103,29 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             throw new IllegalArgumentException("Movie not found with ID: " + movieId);
         }
         return showtimeRepository.findByMovieIdWithDetails(movieId)
+                .stream()
+                .map(ShowtimeResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Filters showtimes for a specific movie within the boundaries of a given date (00:00:00 to 23:59:59.999999999 UTC).
+     *
+     * @param movieId target movie ID
+     * @param date requested calendar date
+     * @return List of ShowtimeResponse DTOs matching that day
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShowtimeResponse> getShowtimesByMovieIdAndDate(Long movieId, LocalDate date) {
+        if (!movieRepository.existsById(movieId)) {
+            throw new IllegalArgumentException("Movie not found with ID: " + movieId);
+        }
+
+        OffsetDateTime startOfDay = date.atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime endOfDay = date.atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC);
+
+        return showtimeRepository.findByMovieIdAndDateRangeWithDetails(movieId, startOfDay, endOfDay)
                 .stream()
                 .map(ShowtimeResponse::fromEntity)
                 .collect(Collectors.toList());
