@@ -2,14 +2,19 @@ import React from 'react';
 
 /**
  * SeatGrid Component - BookMyShow Design
- * - Tiered sections with horizontal divider lines and price headers
- * - Left row rail
- * - Green outline for available seats, solid gray for booked, golden yellow for selected
- * - Cinema screen positioned at the bottom with perspective 3D styling
+ * - Tiered horizontal sections with price dividers:
+ *     VIP (Rows H-J, 1.5x) at the top
+ *     GOLD (Rows D-G, 1.2x) in the middle
+ *     SILVER (Rows A-C, 1.0x) nearest to the screen
+ * - Left and right row label rails
+ * - Cinema aisle spacing after seat 02 and seat 07
+ * - Seat status indicators:
+ *     Available: Green border (#22c55e), white background
+ *     Selected: Golden yellow (#eab308), white text, subtle shadow
+ *     Sold / Held: Solid gray (#e2e8f0), disabled cursor
+ * - Cinema screen positioned at the bottom with perspective 3D curvature
  */
 const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
-  // Group seats by tier: VIP (H-J), GOLD (D-G), SILVER (A-C)
-  // In cinema layouts, top tier (VIP) appears at the top, Silver nearest to screen
   const tiersOrder = ['VIP', 'GOLD', 'SILVER'];
 
   const getTiersData = () => {
@@ -27,10 +32,11 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
         tieredGroups[tierKey].price = seat.price;
       }
 
-      if (!tieredGroups[tierKey].rows[seat.rowLabel]) {
-        tieredGroups[tierKey].rows[seat.rowLabel] = [];
+      const row = seat.rowLabel || (seat.id ? seat.id.charAt(0) : 'A');
+      if (!tieredGroups[tierKey].rows[row]) {
+        tieredGroups[tierKey].rows[row] = [];
       }
-      tieredGroups[tierKey].rows[seat.rowLabel].push(seat);
+      tieredGroups[tierKey].rows[row].push(seat);
     });
 
     return tieredGroups;
@@ -38,8 +44,17 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
 
   const tieredData = getTiersData();
 
-  // Helper to format 2-digit seat numbers (e.g. 1 -> "01")
-  const formatSeatNum = (num) => (num < 10 ? `0${num}` : `${num}`);
+  const formatSeatNum = (seat) => {
+    if (seat.seatNumber !== undefined && seat.seatNumber !== null) {
+      return seat.seatNumber < 10 ? `0${seat.seatNumber}` : `${seat.seatNumber}`;
+    }
+    const numPart = seat.id ? seat.id.replace(/^[A-Z]/, '') : '';
+    const parsed = parseInt(numPart, 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed < 10 ? `0${parsed}` : `${parsed}`;
+    }
+    return seat.id || '';
+  };
 
   const getSeatStyle = (seat, isSelected) => {
     const isBooked = seat.status === 'RESERVED' || seat.status === 'LOCKED';
@@ -55,15 +70,15 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
 
     if (isSelected) {
       return {
-        backgroundColor: '#eab308', // Golden Yellow
+        backgroundColor: '#eab308',
         borderColor: '#ca8a04',
         color: '#ffffff',
         fontWeight: '700',
         boxShadow: '0 2px 6px rgba(234, 179, 8, 0.4)',
+        cursor: 'pointer',
       };
     }
 
-    // Available seat: Green outline
     return {
       backgroundColor: '#ffffff',
       borderColor: '#22c55e',
@@ -78,34 +93,38 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
       {/* Tier Sections */}
       {tiersOrder.map((tierKey) => {
         const group = tieredData[tierKey];
-        const rowLabels = Object.keys(group.rows).sort().reverse(); // Show top rows descending
+        const rowLabels = Object.keys(group.rows).sort().reverse();
 
         if (rowLabels.length === 0) return null;
 
         return (
-          <div key={tierKey} style={{ width: '100%', marginBottom: '32px' }}>
-            {/* Section Header with Line */}
-            <div style={{ textAlign: 'center', marginBottom: '14px', position: 'relative' }}>
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: 0,
-                right: 0,
-                height: '1px',
-                backgroundColor: '#e2e8f0',
-                zIndex: 0,
-              }} />
-              <span style={{
-                position: 'relative',
-                zIndex: 1,
-                backgroundColor: '#ffffff',
-                padding: '0 16px',
-                fontSize: '0.85rem',
-                fontWeight: '700',
-                color: '#334155',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}>
+          <div key={tierKey} style={{ width: '100%', marginBottom: '28px' }}>
+            {/* Section Header with Horizontal Divider Line */}
+            <div style={{ textAlign: 'center', marginBottom: '16px', position: 'relative' }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: 0,
+                  right: 0,
+                  height: '1px',
+                  backgroundColor: '#e2e8f0',
+                  zIndex: 0,
+                }}
+              />
+              <span
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  backgroundColor: '#ffffff',
+                  padding: '0 16px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  color: '#334155',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
+              >
                 ₹{group.price ? Number(group.price).toFixed(0) : '—'} {group.label}
               </span>
             </div>
@@ -113,26 +132,32 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
             {/* Rows in this tier */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
               {rowLabels.map((rowLabel) => {
-                const rowSeats = group.rows[rowLabel].sort((a, b) => a.seatNumber - b.seatNumber);
+                const rowSeats = group.rows[rowLabel].sort((a, b) => {
+                  const numA = a.seatNumber || parseInt(a.id.replace(/^[A-Z]/, ''), 10) || 0;
+                  const numB = b.seatNumber || parseInt(b.id.replace(/^[A-Z]/, ''), 10) || 0;
+                  return numA - numB;
+                });
 
                 return (
-                  <div key={rowLabel} style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <div key={rowLabel} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     {/* Left Row Indicator */}
-                    <span style={{
-                      width: '24px',
-                      fontSize: '0.85rem',
-                      fontWeight: '700',
-                      color: '#475569',
-                      textAlign: 'center',
-                    }}>
+                    <span
+                      style={{
+                        width: '24px',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        color: '#475569',
+                        textAlign: 'center',
+                      }}
+                    >
                       {rowLabel}
                     </span>
 
-                    {/* Seats Matrix with Aisle separation */}
+                    {/* Seats Matrix with Dual Aisle Spacing (after 02 and 07) */}
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                       {rowSeats.map((seat, index) => {
                         const isSelected = selectedSeatIds.includes(seat.id);
-                        const isAisle = index === 4; // Gap after seat 5
+                        const isAisle = index === 1 || index === 6; // Aisle after seat 2 and seat 7
 
                         return (
                           <React.Fragment key={seat.id}>
@@ -140,7 +165,7 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
                               type="button"
                               disabled={seat.status !== 'AVAILABLE'}
                               onClick={() => onSeatToggle(seat)}
-                              title={`Seat ${seat.id} • ₹${Number(seat.price).toFixed(0)}`}
+                              title={`Seat ${seat.id} • ₹${seat.price ? Number(seat.price).toFixed(0) : '—'}`}
                               style={{
                                 width: '32px',
                                 height: '30px',
@@ -156,7 +181,7 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
                                 ...getSeatStyle(seat, isSelected),
                               }}
                             >
-                              {formatSeatNum(seat.seatNumber)}
+                              {formatSeatNum(seat)}
                             </button>
                             {isAisle && <div style={{ width: '18px' }} />}
                           </React.Fragment>
@@ -165,13 +190,15 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
                     </div>
 
                     {/* Right Row Indicator */}
-                    <span style={{
-                      width: '24px',
-                      fontSize: '0.85rem',
-                      fontWeight: '700',
-                      color: '#475569',
-                      textAlign: 'center',
-                    }}>
+                    <span
+                      style={{
+                        width: '24px',
+                        fontSize: '0.85rem',
+                        fontWeight: '700',
+                        color: '#475569',
+                        textAlign: 'center',
+                      }}
+                    >
                       {rowLabel}
                     </span>
                   </div>
@@ -183,52 +210,59 @@ const SeatGrid = ({ seats = [], selectedSeatIds = [], onSeatToggle }) => {
       })}
 
       {/* Screen Indicator at the Bottom */}
-      <div style={{
-        marginTop: '24px',
-        marginBottom: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        width: '100%',
-        maxWidth: '480px',
-      }}>
-        {/* Curved 3D perspective screen */}
-        <div style={{
+      <div
+        style={{
+          marginTop: '28px',
+          marginBottom: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           width: '100%',
-          height: '24px',
-          borderBottom: '4px solid #38bdf8',
-          borderRadius: '50%',
-          boxShadow: '0 12px 14px -6px rgba(56, 189, 248, 0.35)',
-        }} />
-        <span style={{
-          marginTop: '16px',
-          fontSize: '0.8rem',
-          color: '#64748b',
-          letterSpacing: '0.5px',
-          fontWeight: '500',
-        }}>
+          maxWidth: '480px',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            height: '24px',
+            borderBottom: '4px solid #38bdf8',
+            borderRadius: '50%',
+            boxShadow: '0 12px 14px -6px rgba(56, 189, 248, 0.35)',
+          }}
+        />
+        <span
+          style={{
+            marginTop: '16px',
+            fontSize: '0.8rem',
+            color: '#64748b',
+            letterSpacing: '0.5px',
+            fontWeight: '500',
+          }}
+        >
           All eyes this way please
         </span>
       </div>
 
       {/* Status Legend */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '24px',
-        padding: '16px',
-        borderTop: '1px solid #f1f5f9',
-        fontSize: '0.82rem',
-        color: '#475569',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '24px',
+          padding: '16px',
+          borderTop: '1px solid #f1f5f9',
+          fontSize: '0.82rem',
+          color: '#475569',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '16px', height: '16px', border: '1.5px solid #22c55e', borderRadius: '3px', backgroundColor: '#ffffff' }} />
           <span>Available</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '16px', height: '16px', backgroundColor: '#e2e8f0', borderRadius: '3px' }} />
-          <span>Sold</span>
+          <span>Sold / Held</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '16px', height: '16px', backgroundColor: '#eab308', borderRadius: '3px' }} />

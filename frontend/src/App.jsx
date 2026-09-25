@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import Unauthorized from './pages/Unauthorized';
 import AdminDashboard from './pages/AdminDashboard';
 import Booking from './pages/Booking';
+import BookingSuccess from './pages/BookingSuccess';
 
 /**
  * Root Application Router.
@@ -39,7 +40,11 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+
+            {/* Interactive Booking Flow Endpoints */}
             <Route path="/booking/:showtimeId" element={<Booking />} />
+            <Route path="/showtimes/:showtimeId/booking" element={<Booking />} />
+            <Route path="/booking/success/:bookingReference" element={<BookingSuccess />} />
 
             {/* Role-Gated Administrative Portal */}
             <Route
