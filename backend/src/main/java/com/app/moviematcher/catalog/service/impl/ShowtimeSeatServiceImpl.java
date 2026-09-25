@@ -1,5 +1,7 @@
 package com.app.moviematcher.catalog.service.impl;
 
+import com.app.moviematcher.booking.repository.ReservationSeatRepository;
+import com.app.moviematcher.booking.service.SeatLockService;
 import com.app.moviematcher.catalog.dto.SeatDTO;
 import com.app.moviematcher.catalog.dto.SeatLayoutResponseDTO;
 import com.app.moviematcher.catalog.entity.Showtime;
@@ -13,12 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Implementation of ShowtimeSeatService without Lombok dependency.
  * Dynamically computes a 10x10 seat layout grid matching the 100-seat theater screens.
- * Applies tier-based pricing (Silver, Gold, VIP) using BigDecimal arithmetic.
+ * Applies tier-based pricing (Silver, Gold, VIP) using BigDecimal arithmetic and synthesizes
+ * real-time availability by combining PostgreSQL confirmed reservations and Redis distributed locks.
  */
 @Service
 public class ShowtimeSeatServiceImpl implements ShowtimeSeatService {
@@ -26,6 +31,8 @@ public class ShowtimeSeatServiceImpl implements ShowtimeSeatService {
     private static final Logger log = LoggerFactory.getLogger(ShowtimeSeatServiceImpl.class);
 
     private final ShowtimeRepository showtimeRepository;
+    private final ReservationSeatRepository reservationSeatRepository;
+    private final SeatLockService seatLockService;
 
     private static final int TOTAL_ROWS = 10;
     private static final int TOTAL_COLUMNS = 10;
@@ -41,35 +48,57 @@ public class ShowtimeSeatServiceImpl implements ShowtimeSeatService {
     private static final BigDecimal VIP_MULTIPLIER = new BigDecimal("1.50");
 
     /**
-     * Constructor injection for ShowtimeRepository.
+     * Constructor injection for ShowtimeRepository, ReservationSeatRepository, and SeatLockService.
      */
-    public ShowtimeSeatServiceImpl(ShowtimeRepository showtimeRepository) {
+    public ShowtimeSeatServiceImpl(
+            ShowtimeRepository showtimeRepository,
+            ReservationSeatRepository reservationSeatRepository,
+            SeatLockService seatLockService) {
         this.showtimeRepository = showtimeRepository;
+        this.reservationSeatRepository = reservationSeatRepository;
+        this.seatLockService = seatLockService;
     }
 
     /**
-     * Retrieves the showtime entity, calculates seat pricing tiers,
-     * and constructs the full 10x10 seat matrix.
+     * Retrieves the showtime entity, queries both permanent PostgreSQL bookings and active Redis locks,
+     * calculates tier-scaled pricing, and constructs the synthesized 10x10 seat matrix.
      */
     @Override
     @Transactional(readOnly = true)
     public SeatLayoutResponseDTO getSeatLayout(Long showtimeId) {
-        log.info("Fetching seat layout for showtime ID: {}", showtimeId);
+        log.info("Fetching seat layout with live inventory for showtime ID: {}", showtimeId);
 
         Showtime showtime = showtimeRepository.findById(showtimeId)
                 .orElseThrow(() -> new IllegalArgumentException("Showtime not found with id: " + showtimeId));
 
+        // 1. Fetch confirmed seat identifiers from PostgreSQL (Permanent bookings)
+        List<String> confirmedSeatsList = reservationSeatRepository.findReservedSeatIdentifiers(showtimeId);
+        Set<String> confirmedSeats = new HashSet<>(confirmedSeatsList);
+
+        // 2. Fetch active temporary seat locks from Redis
+        Set<String> lockedSeats = seatLockService.getLockedSeatsForShowtime(showtimeId);
+
         BigDecimal basePrice = showtime.getTicketPrice();
         List<SeatDTO> seats = new ArrayList<>(TOTAL_ROWS * TOTAL_COLUMNS);
 
-        // Generate the 10x10 matrix (A1 to J10)
+        // 3. Generate the 10x10 matrix (A1 to J10) with synthesized status
         for (int r = 0; r < TOTAL_ROWS; r++) {
             String rowLabel = ROW_LABELS[r];
             String tier = determineTier(r);
             BigDecimal seatPrice = calculatePriceForTier(basePrice, tier);
 
             for (int c = 1; c <= TOTAL_COLUMNS; c++) {
-                String seatId = rowLabel + c; // Deterministic seat identifier for Phase 4 locks
+                String seatId = rowLabel + c;
+
+                // Priority: RESERVED in DB > LOCKED in Redis > AVAILABLE
+                String status;
+                if (confirmedSeats.contains(seatId)) {
+                    status = "RESERVED";
+                } else if (lockedSeats.contains(seatId)) {
+                    status = "LOCKED";
+                } else {
+                    status = "AVAILABLE";
+                }
 
                 seats.add(new SeatDTO(
                         seatId,
@@ -77,7 +106,7 @@ public class ShowtimeSeatServiceImpl implements ShowtimeSeatService {
                         c,
                         tier,
                         seatPrice,
-                        "AVAILABLE"
+                        status
                 ));
             }
         }
