@@ -1,5 +1,6 @@
 package com.app.moviematcher.catalog.service.impl;
 
+import com.app.moviematcher.booking.repository.ReservationRepository;
 import com.app.moviematcher.catalog.dto.ShowtimeRequest;
 import com.app.moviematcher.catalog.dto.ShowtimeResponse;
 import com.app.moviematcher.catalog.entity.Movie;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
 
 /**
  * Implementation of ShowtimeService enforcing screen collision checks, schedule integrity,
- * and date-window filtering for public movie browsing.
+ * date-window filtering, and soft-cancellation with reservation status cascading.
  */
 @Service
 public class ShowtimeServiceImpl implements ShowtimeService {
@@ -29,16 +30,19 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final ShowtimeRepository showtimeRepository;
     private final MovieRepository movieRepository;
     private final ScreenRepository screenRepository;
+    private final ReservationRepository reservationRepository;
 
     /**
      * Constructor injection without Lombok.
      */
     public ShowtimeServiceImpl(ShowtimeRepository showtimeRepository,
                                MovieRepository movieRepository,
-                               ScreenRepository screenRepository) {
+                               ScreenRepository screenRepository,
+                               ReservationRepository reservationRepository) {
         this.showtimeRepository = showtimeRepository;
         this.movieRepository = movieRepository;
         this.screenRepository = screenRepository;
+        this.reservationRepository = reservationRepository;
     }
 
     @Override
@@ -74,7 +78,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             );
         }
 
-        // 6. Build and persist Showtime entity
+        // 6. Build and persist Showtime entity with default ACTIVE status
         Showtime showtime = new Showtime(
                 movie,
                 screen,
@@ -139,12 +143,24 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         return ShowtimeResponse.fromEntity(showtime);
     }
 
+    /**
+     * Cancels a scheduled showtime rather than physically deleting it,
+     * maintaining foreign key integrity for existing user reservations.
+     * Transitions the showtime and any linked reservations to CANCELLED.
+     *
+     * @param id ID of the showtime to cancel
+     */
     @Override
     @Transactional
     public void deleteShowtime(Long id) {
-        if (!showtimeRepository.existsById(id)) {
-            throw new IllegalArgumentException("Cannot delete: Showtime not found with ID: " + id);
-        }
-        showtimeRepository.deleteById(id);
+        Showtime showtime = showtimeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Cannot cancel: Showtime not found with ID: " + id));
+
+        // 1. Mark showtime as CANCELLED so it drops off active public browse and collision checks
+        showtime.setStatus("CANCELLED");
+        showtimeRepository.save(showtime);
+
+        // 2. Cascade status update: mark any existing user reservations for this showtime as CANCELLED
+        reservationRepository.cancelAllByShowtimeId(id);
     }
 }

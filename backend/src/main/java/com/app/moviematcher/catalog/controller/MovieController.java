@@ -2,8 +2,10 @@ package com.app.moviematcher.catalog.controller;
 
 import com.app.moviematcher.catalog.dto.MovieRequest;
 import com.app.moviematcher.catalog.dto.MovieResponse;
+import com.app.moviematcher.catalog.dto.OmdbMovieResponseDTO;
 import com.app.moviematcher.catalog.dto.ShowtimeResponse;
 import com.app.moviematcher.catalog.service.MovieService;
+import com.app.moviematcher.catalog.service.OmdbIntegrationService;
 import com.app.moviematcher.catalog.service.ShowtimeService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -33,10 +35,26 @@ public class MovieController {
 
     private final MovieService movieService;
     private final ShowtimeService showtimeService;
+    private final OmdbIntegrationService omdbIntegrationService;
 
-    public MovieController(MovieService movieService, ShowtimeService showtimeService) {
+    public MovieController(
+            MovieService movieService,
+            ShowtimeService showtimeService,
+            OmdbIntegrationService omdbIntegrationService) {
         this.movieService = movieService;
         this.showtimeService = showtimeService;
+        this.omdbIntegrationService = omdbIntegrationService;
+    }
+
+    /**
+     * Look up external movie details from OMDb by title or IMDb ID (e.g. tt1375666).
+     * Admin-only operation to auto-fill movie forms.
+     */
+    @GetMapping("/omdb-lookup")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<OmdbMovieResponseDTO> lookupOmdbMovie(@RequestParam String query) {
+        OmdbMovieResponseDTO response = omdbIntegrationService.fetchMovieByImdbIdOrTitle(query);
+        return ResponseEntity.ok(response);
     }
 
     /**

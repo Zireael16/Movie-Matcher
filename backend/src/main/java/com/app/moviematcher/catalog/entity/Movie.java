@@ -14,10 +14,11 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * JPA Entity representing a Movie in the catalog.
- * Corresponds to the 'movies' table created by Flyway migration V2.
+ * Corresponds to the 'movies' table created by Flyway migration V2 and altered by V4.
  */
 @Entity
 @Table(name = "movies")
@@ -42,6 +43,12 @@ public class Movie {
      */
     @Column(name = "duration_minutes", nullable = false)
     private Integer durationMinutes;
+
+    @Column(name = "poster_url", length = 1024)
+    private String posterUrl;
+
+    @Column(name = "imdb_rating", length = 10)
+    private String imdbRating;
 
     /**
      * Bi-directional relationship: One Movie has many scheduled Showtimes.
@@ -73,6 +80,17 @@ public class Movie {
     }
 
     /**
+     * Full-parameter constructor for initializing a movie with external metadata.
+     */
+    public Movie(String title, String description, Integer durationMinutes, String posterUrl, String imdbRating) {
+        this.title = title;
+        this.description = description;
+        this.durationMinutes = durationMinutes;
+        this.posterUrl = posterUrl;
+        this.imdbRating = imdbRating;
+    }
+
+    /**
      * Automatically populate auditing timestamps before inserting a new record.
      */
     @PrePersist
@@ -90,7 +108,7 @@ public class Movie {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    // --- Standard Getters and Setters (No Lombok) ---
+    // --- Standard Getters and Setters (Strictly No Lombok) ---
 
     public Long getId() {
         return id;
@@ -124,6 +142,22 @@ public class Movie {
         this.durationMinutes = durationMinutes;
     }
 
+    public String getPosterUrl() {
+        return posterUrl;
+    }
+
+    public void setPosterUrl(String posterUrl) {
+        this.posterUrl = posterUrl;
+    }
+
+    public String getImdbRating() {
+        return imdbRating;
+    }
+
+    public void setImdbRating(String imdbRating) {
+        this.imdbRating = imdbRating;
+    }
+
     public List<Showtime> getShowtimes() {
         return showtimes;
     }
@@ -146,5 +180,32 @@ public class Movie {
 
     public void setUpdatedAt(OffsetDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Movie movie = (Movie) o;
+        return Objects.equals(id, movie.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
+    @Override
+    public String toString() {
+        return "Movie{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", description='" + description + '\'' +
+                ", durationMinutes=" + durationMinutes +
+                ", posterUrl='" + posterUrl + '\'' +
+                ", imdbRating='" + imdbRating + '\'' +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
+                '}';
     }
 }

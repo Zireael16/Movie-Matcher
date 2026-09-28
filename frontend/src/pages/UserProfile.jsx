@@ -105,6 +105,8 @@ const UserProfile = () => {
     const bookingRef = String(item.bookingReference || '');
     const shortRef = bookingRef.length > 8 ? bookingRef.substring(0, 8).toUpperCase() : bookingRef.toUpperCase();
 
+    const hasPoster = item.moviePosterUrl && item.moviePosterUrl !== 'N/A';
+
     return (
       <div
         key={item.bookingReference}
@@ -126,53 +128,71 @@ const UserProfile = () => {
               width: '180px',
               minWidth: '180px',
               backgroundColor: '#0f172a',
+              position: 'relative',
+              overflow: 'hidden',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '16px',
-              position: 'relative',
-              background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-              color: '#ffffff',
             }}
           >
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: '12px',
-                border: '1px solid #334155',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                padding: '12px',
-                boxSizing: 'border-box',
-                background: 'rgba(255, 255, 255, 0.03)',
-              }}
-            >
-              <svg
-                style={{ width: '40px', height: '40px', color: '#94a3b8', marginBottom: '10px' }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-              </svg>
-              <span
+            {hasPoster ? (
+              <img
+                src={item.moviePosterUrl}
+                alt={item.movieTitle || 'Movie Poster'}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
                 style={{
-                  fontSize: '0.82rem',
-                  fontWeight: '700',
-                  color: '#e2e8f0',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  lineHeight: '1.2',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  display: 'block',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  padding: '16px',
+                  boxSizing: 'border-box',
+                  background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                  color: '#ffffff',
                 }}
               >
-                {item.movieTitle || 'Movie'}
-              </span>
-            </div>
+                <svg
+                  style={{ width: '40px', height: '40px', color: '#94a3b8', marginBottom: '10px' }}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.5"
+                    d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
+                  />
+                </svg>
+                <span
+                  style={{
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    color: '#e2e8f0',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    lineHeight: '1.2',
+                  }}
+                >
+                  {item.movieTitle || 'Movie'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Ticket Perforation Divider */}

@@ -1,9 +1,12 @@
 package com.app.moviematcher.catalog.service.impl;
 
+import com.app.moviematcher.booking.repository.ReservationRepository;
 import com.app.moviematcher.catalog.dto.MovieRequest;
 import com.app.moviematcher.catalog.dto.MovieResponse;
 import com.app.moviematcher.catalog.entity.Movie;
+import com.app.moviematcher.catalog.entity.Showtime;
 import com.app.moviematcher.catalog.repository.MovieRepository;
+import com.app.moviematcher.catalog.repository.ShowtimeRepository;
 import com.app.moviematcher.catalog.service.MovieService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +21,18 @@ import java.util.stream.Collectors;
 public class MovieServiceImpl implements MovieService {
 
     private final MovieRepository movieRepository;
+    private final ShowtimeRepository showtimeRepository;
+    private final ReservationRepository reservationRepository;
 
     /**
      * Constructor injection without Lombok.
      */
-    public MovieServiceImpl(MovieRepository movieRepository) {
+    public MovieServiceImpl(MovieRepository movieRepository,
+                            ShowtimeRepository showtimeRepository,
+                            ReservationRepository reservationRepository) {
         this.movieRepository = movieRepository;
+        this.showtimeRepository = showtimeRepository;
+        this.reservationRepository = reservationRepository;
     }
 
     @Override
@@ -37,7 +46,9 @@ public class MovieServiceImpl implements MovieService {
         Movie movie = new Movie(
                 request.getTitle().trim(),
                 request.getDescription(),
-                request.getDurationMinutes()
+                request.getDurationMinutes(),
+                request.getPosterUrl(),
+                request.getImdbRating()
         );
 
         Movie savedMovie = movieRepository.save(movie);
@@ -77,18 +88,32 @@ public class MovieServiceImpl implements MovieService {
         existingMovie.setTitle(request.getTitle().trim());
         existingMovie.setDescription(request.getDescription());
         existingMovie.setDurationMinutes(request.getDurationMinutes());
+        existingMovie.setPosterUrl(request.getPosterUrl());
+        existingMovie.setImdbRating(request.getImdbRating());
 
         Movie updatedMovie = movieRepository.save(existingMovie);
         return MovieResponse.fromEntity(updatedMovie);
     }
 
+    /**
+     * Handles movie removal by soft-cancelling linked showtimes and customer reservations
+     * before deleting the movie record, preserving foreign key integrity and audit history.
+     */
     @Override
     @Transactional
     public void deleteMovie(Long id) {
-        if (!movieRepository.existsById(id)) {
-            throw new IllegalArgumentException("Cannot delete: Movie not found with ID: " + id);
+        Movie movie = movieRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Cannot delete: Movie not found with ID: " + id));
+
+        List<Showtime> associatedShowtimes = movie.getShowtimes();
+        if (associatedShowtimes != null && !associatedShowtimes.isEmpty()) {
+            for (Showtime showtime : associatedShowtimes) {
+                showtime.setStatus("CANCELLED");
+                showtimeRepository.save(showtime);
+                reservationRepository.cancelAllByShowtimeId(showtime.getId());
+            }
         }
-        // CascadeType.ALL on Movie.showtimes automatically cleans up linked showtimes
-        movieRepository.deleteById(id);
+
+        movieRepository.delete(movie);
     }
 }

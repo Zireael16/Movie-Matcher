@@ -187,7 +187,7 @@ public class BookingServiceImpl implements BookingService {
 
     /**
      * Retrieves detailed booking history for a specific customer account,
-     * including movie metadata and showtime timestamps.
+     * including movie metadata, poster URL, and showtime timestamps.
      */
     @Override
     @Transactional(readOnly = true)
@@ -226,6 +226,10 @@ public class BookingServiceImpl implements BookingService {
                 ? showtime.getMovie().getTitle()
                 : "Unknown Movie";
 
+        String moviePosterUrl = (showtime != null && showtime.getMovie() != null)
+                ? showtime.getMovie().getPosterUrl()
+                : null;
+
         String screenName = (showtime != null && showtime.getScreen() != null)
                 ? showtime.getScreen().getName()
                 : "Main Screen";
@@ -251,6 +255,7 @@ public class BookingServiceImpl implements BookingService {
                 bookingUuid,
                 showtimeId,
                 movieTitle,
+                moviePosterUrl,
                 screenName,
                 startTime,
                 endTime,

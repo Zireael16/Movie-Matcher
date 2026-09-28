@@ -6,12 +6,19 @@ import api from '../api/axios';
  * Communicates with Spring Boot backend endpoints:
  * - GET /movies, POST /movies, DELETE /movies/{id}
  * - GET /showtimes, POST /showtimes, DELETE /showtimes/{id}
+ * - GET /movies/omdb-lookup?query={query}
  */
 export default function AdminDashboard() {
+  // OMDb Query State
+  const [omdbQuery, setOmdbQuery] = useState('');
+  const [isFetchingOmdb, setIsFetchingOmdb] = useState(false);
+
   // Movie Creation Form State
   const [movieTitle, setMovieTitle] = useState('');
   const [movieDescription, setMovieDescription] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
+  const [posterUrl, setPosterUrl] = useState('');
+  const [imdbRating, setImdbRating] = useState('');
 
   // Showtime Scheduling Form State
   const [selectedMovieId, setSelectedMovieId] = useState('');
@@ -58,6 +65,71 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
+  const handleOmdbLookup = async (e) => {
+    e.preventDefault();
+    if (!omdbQuery.trim()) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Please enter an IMDb ID or Movie Title to lookup.',
+      });
+      return;
+    }
+
+    setIsFetchingOmdb(true);
+    setStatusMessage({ type: '', text: '' });
+
+    try {
+      const response = await api.get(
+        `/movies/omdb-lookup?query=${encodeURIComponent(omdbQuery.trim())}`
+      );
+      const data = response.data;
+
+      if (!data) {
+        throw new Error('Movie not found on OMDb.');
+      }
+
+      // Handle both PascalCase and camelCase payload shapes
+      const resolvedTitle = data.Title || data.title || '';
+      const resolvedDescription = data.Plot || data.description || data.plot || '';
+      const rawPoster = data.Poster || data.posterUrl || data.poster || '';
+      const resolvedPoster = rawPoster !== 'N/A' ? rawPoster : '';
+      const resolvedRating = data.imdbRating || data.ImdbRating || '';
+
+      let resolvedDuration = '';
+      if (data.runtimeMinutes != null) {
+        resolvedDuration = String(data.runtimeMinutes);
+      } else if (data.durationMinutes != null) {
+        resolvedDuration = String(data.durationMinutes);
+      } else {
+        const rawRuntime = data.Runtime || data.runtime || '';
+        const parsed = parseInt(String(rawRuntime).replace(/[^0-9]/g, ''), 10);
+        if (!Number.isNaN(parsed)) {
+          resolvedDuration = String(parsed);
+        }
+      }
+
+      setMovieTitle(resolvedTitle);
+      setMovieDescription(resolvedDescription);
+      setPosterUrl(resolvedPoster);
+      setDurationMinutes(resolvedDuration);
+      setImdbRating(resolvedRating !== 'N/A' ? resolvedRating : '');
+
+      setStatusMessage({
+        type: 'success',
+        text: `Details fetched for "${resolvedTitle || 'movie'}". Review and edit before saving.`,
+      });
+    } catch (error) {
+      console.error('OMDb lookup error:', error);
+      const msg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        'Movie not found on OMDb or lookup failed.';
+      setStatusMessage({ type: 'error', text: msg });
+    } finally {
+      setIsFetchingOmdb(false);
+    }
+  };
+
   const handleCreateMovie = async (e) => {
     e.preventDefault();
     setStatusMessage({ type: '', text: '' });
@@ -68,6 +140,8 @@ export default function AdminDashboard() {
         title: movieTitle.trim(),
         description: movieDescription.trim(),
         durationMinutes: parseInt(durationMinutes, 10),
+        posterUrl: posterUrl.trim() || null,
+        imdbRating: imdbRating.trim() || null,
       });
 
       setStatusMessage({
@@ -77,6 +151,9 @@ export default function AdminDashboard() {
       setMovieTitle('');
       setMovieDescription('');
       setDurationMinutes('');
+      setPosterUrl('');
+      setImdbRating('');
+      setOmdbQuery('');
       await fetchDashboardData();
     } catch (error) {
       const msg = error.response?.data?.message || 'Failed to create movie.';
@@ -226,6 +303,99 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* OMDb Search & Auto-Fill Toolbar */}
+      <section
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '20px 24px',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          marginBottom: '28px',
+        }}
+      >
+        <div style={{ marginBottom: '12px' }}>
+          <h2
+            style={{
+              fontSize: '1.1rem',
+              margin: '0 0 4px 0',
+              color: '#0f172a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span>🎬</span> Auto-Fill via OMDb Integration
+          </h2>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>
+            Lookup movie metadata by IMDb identifier or film title to populate registration fields automatically.
+          </p>
+        </div>
+        <form
+          onSubmit={handleOmdbLookup}
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '12px',
+            alignItems: 'center',
+          }}
+        >
+          <input
+            type="text"
+            value={omdbQuery}
+            onChange={(e) => setOmdbQuery(e.target.value)}
+            placeholder="e.g. tt0111161 or Inception"
+            disabled={isFetchingOmdb}
+            style={{
+              flex: '1 1 280px',
+              padding: '10px 14px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.9rem',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={isFetchingOmdb}
+            style={{
+              backgroundColor: '#3b82f6',
+              color: '#ffffff',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '6px',
+              fontWeight: '600',
+              fontSize: '0.9rem',
+              cursor: isFetchingOmdb ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s',
+            }}
+          >
+            {isFetchingOmdb ? (
+              <>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: '12px',
+                    height: '12px',
+                    border: '2px solid #ffffff',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                  }}
+                />
+                Fetching Details...
+              </>
+            ) : (
+              'Fetch Details'
+            )}
+          </button>
+        </form>
+      </section>
+
       {/* Form Section */}
       <div
         style={{
@@ -255,34 +425,149 @@ export default function AdminDashboard() {
             Register New Movie
           </h2>
           <form onSubmit={handleCreateMovie}>
-            <div style={{ marginBottom: '14px' }}>
-              <label
+            {/* Visual Poster Preview & Main Inputs */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '16px',
+                marginBottom: '14px',
+                alignItems: 'flex-start',
+              }}
+            >
+              {/* Poster Thumbnail */}
+              <div
                 style={{
-                  display: 'block',
-                  fontSize: '0.85rem',
-                  fontWeight: '600',
-                  marginBottom: '6px',
-                  color: '#334155',
+                  width: '90px',
+                  height: '130px',
+                  borderRadius: '6px',
+                  border: '1px dashed #cbd5e1',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  flexShrink: 0,
                 }}
               >
-                Title
-              </label>
-              <input
-                type="text"
-                required
-                value={movieTitle}
-                onChange={(e) => setMovieTitle(e.target.value)}
-                placeholder="e.g. Interstellar"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  boxSizing: 'border-box',
-                  borderRadius: '4px',
-                  border: '1px solid #cbd5e1',
-                }}
-              />
+                {posterUrl && posterUrl !== 'N/A' ? (
+                  <img
+                    src={posterUrl}
+                    alt="Poster Preview"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#94a3b8',
+                      textAlign: 'center',
+                      padding: '4px',
+                    }}
+                  >
+                    No Poster
+                  </span>
+                )}
+              </div>
+
+              {/* Title, Duration, & IMDb Rating Fields */}
+              <div style={{ flex: 1 }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      marginBottom: '6px',
+                      color: '#334155',
+                    }}
+                  >
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={movieTitle}
+                    onChange={(e) => setMovieTitle(e.target.value)}
+                    placeholder="e.g. Interstellar"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      boxSizing: 'border-box',
+                      borderRadius: '4px',
+                      border: '1px solid #cbd5e1',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        marginBottom: '6px',
+                        color: '#334155',
+                      }}
+                    >
+                      Duration (min)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={durationMinutes}
+                      onChange={(e) => setDurationMinutes(e.target.value)}
+                      placeholder="169"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        boxSizing: 'border-box',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e1',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        marginBottom: '6px',
+                        color: '#334155',
+                      }}
+                    >
+                      IMDb Rating
+                    </label>
+                    <input
+                      type="text"
+                      value={imdbRating}
+                      onChange={(e) => setImdbRating(e.target.value)}
+                      placeholder="e.g. 8.8"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        boxSizing: 'border-box',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e1',
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
+            {/* Poster URL Manual Override */}
             <div style={{ marginBottom: '14px' }}>
               <label
                 style={{
@@ -293,15 +578,13 @@ export default function AdminDashboard() {
                   color: '#334155',
                 }}
               >
-                Duration (minutes)
+                Poster Image URL (Optional)
               </label>
               <input
-                type="number"
-                required
-                min="1"
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(e.target.value)}
-                placeholder="e.g. 169"
+                type="url"
+                value={posterUrl}
+                onChange={(e) => setPosterUrl(e.target.value)}
+                placeholder="https://m.media-amazon.com/images/..."
                 style={{
                   width: '100%',
                   padding: '8px 12px',
@@ -406,7 +689,7 @@ export default function AdminDashboard() {
                 <option value="">-- Choose a film --</option>
                 {movies.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.title} ({m.durationMinutes}m)
+                    {m.title} ({m.durationMinutes}m) {m.imdbRating ? `★ ${m.imdbRating}` : ''}
                   </option>
                 ))}
               </select>
@@ -561,7 +844,9 @@ export default function AdminDashboard() {
                     color: '#475569',
                   }}
                 >
+                  <th style={{ padding: '10px 14px' }}>Poster</th>
                   <th style={{ padding: '10px 14px' }}>Title</th>
+                  <th style={{ padding: '10px 14px' }}>Rating</th>
                   <th style={{ padding: '10px 14px' }}>Duration</th>
                   <th style={{ padding: '10px 14px' }}>Description</th>
                   <th style={{ padding: '10px 14px', textAlign: 'right' }}>Actions</th>
@@ -570,6 +855,36 @@ export default function AdminDashboard() {
               <tbody>
                 {movies.map((m) => (
                   <tr key={m.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '12px 14px' }}>
+                      {m.posterUrl ? (
+                        <img
+                          src={m.posterUrl}
+                          alt={m.title}
+                          style={{
+                            width: '36px',
+                            height: '52px',
+                            objectFit: 'cover',
+                            borderRadius: '3px',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '52px',
+                            backgroundColor: '#f1f5f9',
+                            borderRadius: '3px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.65rem',
+                            color: '#94a3b8',
+                          }}
+                        >
+                          N/A
+                        </div>
+                      )}
+                    </td>
                     <td
                       style={{
                         padding: '12px 14px',
@@ -579,6 +894,9 @@ export default function AdminDashboard() {
                     >
                       {m.title}
                     </td>
+                    <td style={{ padding: '12px 14px', fontWeight: '700', color: '#b45309' }}>
+                      {m.imdbRating ? `★ ${m.imdbRating}` : '-'}
+                    </td>
                     <td style={{ padding: '12px 14px', color: '#475569' }}>
                       {m.durationMinutes} mins
                     </td>
@@ -586,7 +904,7 @@ export default function AdminDashboard() {
                       style={{
                         padding: '12px 14px',
                         color: '#64748b',
-                        maxWidth: '380px',
+                        maxWidth: '340px',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',

@@ -12,34 +12,36 @@ import java.util.List;
 /**
  * Spring Data JPA repository for Showtime entities.
  * Includes optimized query methods with fetch joins, interval overlap detection,
- * and date-window filtering for public movie browsing.
+ * active status filtering, and date-window filtering for public movie browsing.
  */
 @Repository
 public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
 
     /**
-     * Eagerly loads all Showtimes with their associated Movie and Screen
+     * Eagerly loads all ACTIVE Showtimes with their associated Movie and Screen
      * in a single query to eliminate the N+1 select problem when listing schedules.
      */
     @Query("SELECT s FROM Showtime s " +
             "JOIN FETCH s.movie " +
             "JOIN FETCH s.screen " +
+            "WHERE s.status = 'ACTIVE' " +
             "ORDER BY s.startTime ASC")
     List<Showtime> findAllWithDetails();
 
     /**
-     * Retrieves all showtimes for a specific movie, ordered chronologically.
+     * Retrieves all ACTIVE showtimes for a specific movie, ordered chronologically.
      * Uses JOIN FETCH so downstream consumers have movie and screen metadata immediately.
      */
     @Query("SELECT s FROM Showtime s " +
             "JOIN FETCH s.movie " +
             "JOIN FETCH s.screen " +
             "WHERE s.movie.id = :movieId " +
+            "AND s.status = 'ACTIVE' " +
             "ORDER BY s.startTime ASC")
     List<Showtime> findByMovieIdWithDetails(@Param("movieId") Long movieId);
 
     /**
-     * Retrieves all showtimes for a specific movie scheduled within a specific date window
+     * Retrieves all ACTIVE showtimes for a specific movie scheduled within a specific date window
      * (e.g., from 00:00:00 to 23:59:59 of a selected day).
      * Includes JOIN FETCH on movie and screen to avoid secondary queries during UI rendering.
      *
@@ -52,6 +54,7 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
             "JOIN FETCH s.movie " +
             "JOIN FETCH s.screen " +
             "WHERE s.movie.id = :movieId " +
+            "AND s.status = 'ACTIVE' " +
             "AND s.startTime >= :startOfDay " +
             "AND s.startTime <= :endOfDay " +
             "ORDER BY s.startTime ASC")
@@ -62,7 +65,8 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
     );
 
     /**
-     * Checks if any existing showtime on the target screen overlaps with the requested interval.
+     * Checks if any existing ACTIVE showtime on the target screen overlaps with the requested interval.
+     * Cancelled showtimes are ignored so freed screen slots can be reused.
      *
      * Overlap rule: (existing.startTime < new.endTime) AND (existing.endTime > new.startTime).
      * Back-to-back showtimes (e.g. existing ends at 14:00 and new starts at 14:00) are permitted.
@@ -74,6 +78,7 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
      */
     @Query("SELECT COUNT(s) > 0 FROM Showtime s " +
             "WHERE s.screen.id = :screenId " +
+            "AND s.status = 'ACTIVE' " +
             "AND s.startTime < :endTime " +
             "AND s.endTime > :startTime")
     boolean existsOverlappingShowtime(@Param("screenId") Long screenId,
@@ -81,11 +86,12 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
                                       @Param("endTime") OffsetDateTime endTime);
 
     /**
-     * Overlap check for UPDATING an existing showtime, excluding itself from the collision check.
+     * Overlap check for UPDATING an existing showtime, excluding itself and cancelled showtimes from collision checks.
      */
     @Query("SELECT COUNT(s) > 0 FROM Showtime s " +
             "WHERE s.screen.id = :screenId " +
             "AND s.id <> :showtimeId " +
+            "AND s.status = 'ACTIVE' " +
             "AND s.startTime < :endTime " +
             "AND s.endTime > :startTime")
     boolean existsOverlappingShowtimeExcludingSelf(@Param("screenId") Long screenId,

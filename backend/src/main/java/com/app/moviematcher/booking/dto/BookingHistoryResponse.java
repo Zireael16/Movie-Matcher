@@ -12,6 +12,7 @@ public class BookingHistoryResponse {
     private UUID bookingReference;
     private Long showtimeId;
     private String movieTitle;
+    private String moviePosterUrl;
     private String screenName;
     private OffsetDateTime startTime;
     private OffsetDateTime endTime;
@@ -27,6 +28,7 @@ public class BookingHistoryResponse {
     public BookingHistoryResponse(UUID bookingReference,
                                   Long showtimeId,
                                   String movieTitle,
+                                  String moviePosterUrl,
                                   String screenName,
                                   OffsetDateTime startTime,
                                   OffsetDateTime endTime,
@@ -37,6 +39,7 @@ public class BookingHistoryResponse {
         this.bookingReference = bookingReference;
         this.showtimeId = showtimeId;
         this.movieTitle = movieTitle;
+        this.moviePosterUrl = moviePosterUrl;
         this.screenName = screenName;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -68,6 +71,14 @@ public class BookingHistoryResponse {
 
     public void setMovieTitle(String movieTitle) {
         this.movieTitle = movieTitle;
+    }
+
+    public String getMoviePosterUrl() {
+        return moviePosterUrl;
+    }
+
+    public void setMoviePosterUrl(String moviePosterUrl) {
+        this.moviePosterUrl = moviePosterUrl;
     }
 
     public String getScreenName() {
@@ -134,6 +145,7 @@ public class BookingHistoryResponse {
         return Objects.equals(bookingReference, that.bookingReference) &&
                 Objects.equals(showtimeId, that.showtimeId) &&
                 Objects.equals(movieTitle, that.movieTitle) &&
+                Objects.equals(moviePosterUrl, that.moviePosterUrl) &&
                 Objects.equals(screenName, that.screenName) &&
                 Objects.equals(startTime, that.startTime) &&
                 Objects.equals(endTime, that.endTime) &&
@@ -145,7 +157,7 @@ public class BookingHistoryResponse {
 
     @Override
     public int hashCode() {
-        return Objects.hash(bookingReference, showtimeId, movieTitle, screenName, startTime, endTime, totalAmount, status, createdAt, seatIdentifiers);
+        return Objects.hash(bookingReference, showtimeId, movieTitle, moviePosterUrl, screenName, startTime, endTime, totalAmount, status, createdAt, seatIdentifiers);
     }
 
     @Override
@@ -154,6 +166,7 @@ public class BookingHistoryResponse {
                 "bookingReference=" + bookingReference +
                 ", showtimeId=" + showtimeId +
                 ", movieTitle='" + movieTitle + '\'' +
+                ", moviePosterUrl='" + moviePosterUrl + '\'' +
                 ", screenName='" + screenName + '\'' +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +
