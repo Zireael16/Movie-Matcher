@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import bookingApi from '../api/bookingApi';
 import SeatGrid from '../components/booking/SeatGrid';
 import HoldTimer from '../components/booking/HoldTimer';
+import { useAuth } from '../context/AuthContext';
 
 const CONVENIENCE_FEE_PER_SEAT = 25;
 const MAX_SEATS_ALLOWED = 6;
@@ -15,6 +16,8 @@ const MAX_SEATS_ALLOWED = 6;
 const Booking = () => {
   const { showtimeId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
 
   // Screen layout & selection state
   const [layout, setLayout] = useState(null);
@@ -41,6 +44,23 @@ const Booking = () => {
   useEffect(() => {
     selectedSeatsRef.current = selectedSeats;
   }, [selectedSeats]);
+
+  // Restore pending seats from sessionStorage upon returning from login
+  useEffect(() => {
+    const savedPending = sessionStorage.getItem('pendingSeats');
+    if (savedPending) {
+      try {
+        const parsedSeats = JSON.parse(savedPending);
+        if (Array.isArray(parsedSeats) && parsedSeats.length > 0) {
+          setSelectedSeats(parsedSeats);
+        }
+      } catch (err) {
+        console.error('Failed to parse pending seats from session storage:', err);
+      } finally {
+        sessionStorage.removeItem('pendingSeats');
+      }
+    }
+  }, []);
 
   const fetchSeatLayout = useCallback(async () => {
     try {
@@ -106,6 +126,13 @@ const Booking = () => {
 
   const handleLockSeats = async () => {
     if (selectedSeats.length === 0) return;
+
+    // Check if user is authenticated; if not, persist selection and redirect to login
+    if (!user) {
+      sessionStorage.setItem('pendingSeats', JSON.stringify(selectedSeats));
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`);
+      return;
+    }
 
     try {
       setLockingLoading(true);

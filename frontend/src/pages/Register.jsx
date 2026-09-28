@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -14,6 +14,16 @@ export default function Register() {
 
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Inspect redirect parameter
+  const redirectParam = searchParams.get('redirect');
+  const destination = redirectParam || '/';
+
+  // Preserve redirect query parameter when navigating back to login
+  const loginLink = redirectParam
+    ? `/login?redirect=${encodeURIComponent(redirectParam)}`
+    : '/login';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,7 +40,7 @@ export default function Register() {
     setIsSubmitting(false);
 
     if (result.success) {
-      navigate('/', { replace: true });
+      navigate(destination, { replace: true });
     } else {
       setErrorMessage(result.message);
     }
@@ -210,7 +220,7 @@ export default function Register() {
       >
         Already have an account?{' '}
         <Link
-          to="/login"
+          to={loginLink}
           style={{
             color: '#0284c7',
             textDecoration: 'none',

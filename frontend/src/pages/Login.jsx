@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -14,13 +14,19 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
-  // Inspect if the user arrived via an axios 401 expiry redirect
-  const searchParams = new URLSearchParams(location.search);
+  // Inspect query parameters
+  const redirectParam = searchParams.get('redirect');
   const sessionExpired = searchParams.get('expired') === 'true';
 
-  // Target route to return to post-login (defaults to root)
-  const destination = location.state?.from?.pathname || '/';
+  // Target route to return to post-login (priority: ?redirect -> location.state -> root)
+  const destination = redirectParam || location.state?.from?.pathname || '/';
+
+  // Preserve redirect query parameter when navigating to registration
+  const registerLink = redirectParam
+    ? `/register?redirect=${encodeURIComponent(redirectParam)}`
+    : '/register';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -195,7 +201,7 @@ export default function Login() {
       >
         Don't have an account?{' '}
         <Link
-          to="/register"
+          to={registerLink}
           style={{
             color: '#0284c7',
             textDecoration: 'none',
