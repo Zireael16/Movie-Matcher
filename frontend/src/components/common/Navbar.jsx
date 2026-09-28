@@ -54,6 +54,20 @@ export default function Navbar() {
           Movies
         </Link>
 
+        {isAuthenticated && (
+          <Link
+            to="/profile"
+            style={{
+              color: '#cbd5e1',
+              textDecoration: 'none',
+              fontSize: '0.95rem',
+              fontWeight: '500',
+            }}
+          >
+            My Profile
+          </Link>
+        )}
+
         {isAdmin() && (
           <Link
             to="/admin"

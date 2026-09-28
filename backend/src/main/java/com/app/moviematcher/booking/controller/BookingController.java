@@ -1,12 +1,14 @@
 package com.app.moviematcher.booking.controller;
 
 import com.app.moviematcher.auth.entity.User;
+import com.app.moviematcher.booking.dto.BookingHistoryResponse;
 import com.app.moviematcher.booking.dto.BookingRequest;
 import com.app.moviematcher.booking.dto.BookingResponse;
 import com.app.moviematcher.booking.dto.SeatLockRequest;
 import com.app.moviematcher.booking.dto.SeatLockResponse;
 import com.app.moviematcher.booking.service.BookingService;
 import com.app.moviematcher.booking.service.SeatLockService;
+import com.app.moviematcher.booking.service.impl.BookingServiceImpl;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,11 +32,11 @@ import java.util.List;
 @RequestMapping("/api/v1/bookings")
 public class BookingController {
 
-    private final BookingService bookingService;
+    private final BookingServiceImpl bookingServiceImpl;
     private final SeatLockService seatLockService;
 
-    public BookingController(BookingService bookingService, SeatLockService seatLockService) {
-        this.bookingService = bookingService;
+    public BookingController(BookingServiceImpl bookingServiceImpl, SeatLockService seatLockService) {
+        this.bookingServiceImpl = bookingServiceImpl;
         this.seatLockService = seatLockService;
     }
 
@@ -85,7 +87,7 @@ public class BookingController {
     public ResponseEntity<BookingResponse> createBooking(
             @Valid @RequestBody BookingRequest request,
             @AuthenticationPrincipal User currentUser) {
-        BookingResponse response = bookingService.createBooking(request, currentUser.getId());
+        BookingResponse response = bookingServiceImpl.createBooking(request, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -100,19 +102,19 @@ public class BookingController {
     public ResponseEntity<BookingResponse> getBookingByReference(
             @PathVariable String bookingReference,
             @AuthenticationPrincipal User currentUser) {
-        BookingResponse response = bookingService.getBookingByReference(bookingReference, currentUser.getId());
+        BookingResponse response = bookingServiceImpl.getBookingByReference(bookingReference, currentUser.getId());
         return ResponseEntity.ok(response);
     }
 
     /**
-     * Fetches all bookings belonging to the currently authenticated user.
+     * Fetches all bookings belonging to the currently authenticated user with complete movie metadata.
      *
      * @param currentUser authenticated user principal
-     * @return list of BookingResponse DTOs
+     * @return list of BookingHistoryResponse DTOs
      */
     @GetMapping("/my-bookings")
-    public ResponseEntity<List<BookingResponse>> getMyBookings(@AuthenticationPrincipal User currentUser) {
-        List<BookingResponse> responses = bookingService.getUserBookings(currentUser.getId());
+    public ResponseEntity<List<BookingHistoryResponse>> getMyBookings(@AuthenticationPrincipal User currentUser) {
+        List<BookingHistoryResponse> responses = bookingServiceImpl.getMyBookings(currentUser.getId());
         return ResponseEntity.ok(responses);
     }
 }

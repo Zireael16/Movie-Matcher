@@ -2,6 +2,7 @@ package com.app.moviematcher.booking.service.impl;
 
 import com.app.moviematcher.auth.entity.User;
 import com.app.moviematcher.auth.repository.UserRepository;
+import com.app.moviematcher.booking.dto.BookingHistoryResponse;
 import com.app.moviematcher.booking.dto.BookingRequest;
 import com.app.moviematcher.booking.dto.BookingResponse;
 import com.app.moviematcher.booking.dto.PaymentResult;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -178,10 +180,20 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public List<BookingResponse> getUserBookings(Long userId) {
-        return reservationRepository.findAll().stream()
-                .filter(res -> res.getUser().getId().equals(userId))
-                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+        return reservationRepository.findByUserIdWithSeatsOrderByCreatedAtDesc(userId).stream()
                 .map(this::mapToBookingResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Retrieves detailed booking history for a specific customer account,
+     * including movie metadata and showtime timestamps.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingHistoryResponse> getMyBookings(Long userId) {
+        return reservationRepository.findByUserIdWithSeatsOrderByCreatedAtDesc(userId).stream()
+                .map(this::mapToBookingHistoryResponse)
                 .collect(Collectors.toList());
     }
 
@@ -189,15 +201,61 @@ public class BookingServiceImpl implements BookingService {
      * Maps a Reservation entity into a clean BookingResponse DTO.
      */
     private BookingResponse mapToBookingResponse(Reservation reservation) {
-        List<String> seatIds = reservation.getSeats().stream()
+        List<String> seatIds = reservation.getSeats() != null
+                ? reservation.getSeats().stream()
                 .map(ReservationSeat::getSeatIdentifier)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList())
+                : Collections.emptyList();
 
         return new BookingResponse(
                 reservation.getBookingReference(),
                 reservation.getStatus(),
                 reservation.getShowtime().getId(),
                 reservation.getTotalAmount(),
+                reservation.getCreatedAt(),
+                seatIds
+        );
+    }
+
+    /**
+     * Maps a Reservation entity into a rich BookingHistoryResponse DTO.
+     */
+    private BookingHistoryResponse mapToBookingHistoryResponse(Reservation reservation) {
+        Showtime showtime = reservation.getShowtime();
+        String movieTitle = (showtime != null && showtime.getMovie() != null)
+                ? showtime.getMovie().getTitle()
+                : "Unknown Movie";
+
+        String screenName = (showtime != null && showtime.getScreen() != null)
+                ? showtime.getScreen().getName()
+                : "Main Screen";
+
+        OffsetDateTime startTime = showtime != null ? showtime.getStartTime() : null;
+        OffsetDateTime endTime = showtime != null ? showtime.getEndTime() : null;
+        Long showtimeId = showtime != null ? showtime.getId() : null;
+
+        List<String> seatIds = reservation.getSeats() != null
+                ? reservation.getSeats().stream()
+                .map(ReservationSeat::getSeatIdentifier)
+                .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        UUID bookingUuid;
+        try {
+            bookingUuid = UUID.fromString(reservation.getBookingReference());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            bookingUuid = UUID.randomUUID();
+        }
+
+        return new BookingHistoryResponse(
+                bookingUuid,
+                showtimeId,
+                movieTitle,
+                screenName,
+                startTime,
+                endTime,
+                reservation.getTotalAmount(),
+                reservation.getStatus(),
                 reservation.getCreatedAt(),
                 seatIds
         );

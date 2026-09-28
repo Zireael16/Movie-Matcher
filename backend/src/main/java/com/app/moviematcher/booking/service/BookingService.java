@@ -1,5 +1,6 @@
 package com.app.moviematcher.booking.service;
 
+import com.app.moviematcher.booking.dto.BookingHistoryResponse;
 import com.app.moviematcher.booking.dto.BookingRequest;
 import com.app.moviematcher.booking.dto.BookingResponse;
 
@@ -42,4 +43,13 @@ public interface BookingService {
      * @return List of BookingResponse objects sorted by creation timestamp descending
      */
     List<BookingResponse> getUserBookings(Long userId);
+
+    /**
+     * Retrieves detailed booking history for a specific customer account,
+     * including movie metadata and showtime timestamps.
+     *
+     * @param userId target user ID
+     * @return List of BookingHistoryResponse objects sorted by creation timestamp descending
+     */
+    List<BookingHistoryResponse> getMyBookings(Long userId);
 }

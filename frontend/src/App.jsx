@@ -13,6 +13,7 @@ import Unauthorized from './pages/Unauthorized';
 import AdminDashboard from './pages/AdminDashboard';
 import Booking from './pages/Booking';
 import BookingSuccess from './pages/BookingSuccess';
+import UserProfile from './pages/UserProfile';
 
 /**
  * Root Application Router.
@@ -45,6 +46,16 @@ export default function App() {
             <Route path="/booking/:showtimeId" element={<Booking />} />
             <Route path="/showtimes/:showtimeId/booking" element={<Booking />} />
             <Route path="/booking/success/:bookingReference" element={<BookingSuccess />} />
+
+            {/* Authenticated Customer Dashboard */}
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Role-Gated Administrative Portal */}
             <Route
